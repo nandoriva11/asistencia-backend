@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hermandad - Control de Asistencia</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f0f2f5; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; padding: 20px; box-sizing: border-box; }
+        .container { width: 100%; max-width: 500px; text-align: center; }
+
+        .card { background: white; padding: 2rem; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); margin-bottom: 20px; }
+        h2 { color: #4a148c; margin-bottom: 1.5rem; }
+
+        input { width: 100%; padding: 12px; margin-bottom: 15px; border: 2px solid #ddd; border-radius: 8px; box-sizing: border-box; font-size: 16px; outline: none; }
+        input:focus { border-color: #4a148c; }
+
+        /* Botones */
+        .btn-group { display: flex; gap: 10px; justify-content: center; }
+        button { flex: 1; padding: 12px; border: none; border-radius: 8px; font-size: 16px; cursor: pointer; font-weight: bold; transition: 0.3s; color: white; }
+        .btn-registrar { background-color: #4a148c; }
+        .btn-registrar:hover { background-color: #6a1b9a; }
+        .btn-lista { background-color: #0277bd; }
+        .btn-lista:hover { background-color: #0288d1; }
+
+        /* Mensajes y Tabla */
+        #resultado { margin-top: 20px; padding: 15px; border-radius: 8px; display: none; text-align: left; }
+        .exito { background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .error { background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 0.9em; }
+        th, td { padding: 10px; border-bottom: 1px solid #ddd; text-align: left; }
+        th { background-color: #f9f9f9; color: #555; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="card">
+        <h2>Asistencia Hermandad Carmen de Vitarte</h2>
+        <p style="color: #666; margin-bottom: 20px;">Ingrese el DNI del hermano</p>
+
+        <input type="text" id="dniInput" placeholder="Ej: 10000000" maxlength="8" autofocus>
+
+        <div class="btn-group">
+            <button class="btn-registrar" onclick="registrar()">Registrar</button>
+            <button class="btn-lista" onclick="verLista()">Ver Lista</button>
+        </div>
+
+        <div id="resultado"></div>
+    </div>
+
+    <div id="cardLista" class="card" style="display: none;">
+        <h3 style="color: #0277bd;">📋 Historial de Hoy</h3>
+        <button onclick="cerrarLista()" style="background: #ccc; color: #333; margin-bottom: 10px; padding: 5px 10px; font-size: 14px;">Cerrar</button>
+
+        <table id="tablaAsistencia">
+            <thead>
+            <tr>
+                <th>Nombre</th>
+                <th>Cuadrilla</th>
+                <th>Hora</th>
+            </tr>
+            </thead>
+            <tbody id="cuerpoTabla">
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+    const API_URL = "http://localhost:8080/api";
+
+    async function registrar() {
+        const dni = document.getElementById('dniInput').value;
+        const divResultado = document.getElementById('resultado');
+
+        divResultado.style.display = 'block';
+        divResultado.className = '';
+        divResultado.innerHTML = 'Procesando...';
+
+        try {
+            const respuesta = await fetch(`${API_URL}/registrar`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ "dni": dni })
+            });
+
+            if (respuesta.ok) {
+                const datos = await respuesta.json();
+                divResultado.className = 'exito';
+                divResultado.innerHTML = `
+                        <strong>✅ Registrado:</strong> ${datos.nombreCompleto}<br>
+                        <small>${datos.cuadrilla} - ${new Date(datos.fechaHora).toLocaleTimeString()}</small>
+                    `;
+                document.getElementById('dniInput').value = ""; // Limpiar input
+            } else {
+                const error = await respuesta.text();
+                divResultado.className = 'error';
+                divResultado.innerHTML = `❌ ${error}`;
+            }
+        } catch (e) {
+            divResultado.className = 'error';
+            divResultado.innerHTML = "❌ Error de conexión con el servidor.";
+        }
+    }
+
+    async function verLista() {
+        try {
+            // 1. Pedimos la lista al Backend
+            const respuesta = await fetch(`${API_URL}/lista`);
+            const lista = await respuesta.json();
+
+            // 2. Limpiamos y llenamos la tabla
+            const cuerpoTabla = document.getElementById('cuerpoTabla');
+            cuerpoTabla.innerHTML = ""; // Borrar datos viejos
+
+            lista.forEach(item => {
+                const fila = `
+                        <tr>
+                            <td>${item.nombreCompleto}</td>
+                            <td>${item.cuadrilla}</td>
+                            <td>${new Date(item.fechaHora).toLocaleTimeString()}</td>
+                        </tr>
+                    `;
+                cuerpoTabla.innerHTML += fila;
+            });
+
+            // 3. Mostramos la tarjeta de la lista
+            document.getElementById('cardLista').style.display = 'block';
+        } catch (e) {
+            alert("Error al cargar la lista: " + e);
+        }
+    }
+
+    function cerrarLista() {
+        document.getElementById('cardLista').style.display = 'none';
+    }
+</script>
+
+</body>
+</html>
